@@ -40,21 +40,28 @@ server.post('/api/register', (req, res) => {
 server.post('/api/login', (req, res) => {
   let { username, password } = req.body;
 
-  Users.findBy({ username })
+  if (username && password){
+    Users.findBy({ username })
     .first()
     .then(user => {
-      if (user) {
-        res.status(200).json({ message: `Welcome ${user.username}!` });
-      } else {
-        res.status(401).json({ message: 'Invalid Credentials' });
-      }
-    })
-    .catch(error => {
-      res.status(500).json(error);
-    });
+      
+        if (user && bcrypt.compareSync(password, user.password)) {
+          res.status(200).json({ message: `Welcome ${user.username}!` });
+        } else {
+          res.status(401).json({ message: 'Invalid Credentials' });
+        }
+      })
+      .catch(error => {
+        res.status(500).json(error);
+      });
+  } else {
+    res.status(400).json({ message: 'please provide credentials' });
+  }
+  
+
 });
 
-server.get('/api/users', (req, res) => {
+server.get('/api/users', protected, (req, res) => {
   Users.find()
     .then(users => {
       res.json(users);
@@ -87,6 +94,30 @@ server.get('/hash', (req, res) => {
   res.status(400).json({ message: 'please provide credentials' });
   }
 })
+
+// implement the protected middleware that will check for username and password
+// in the headers and if valid provide access to the endpoint
+function protected(req, res, next) {
+  let { username, password } = req.headers;
+
+  if (username && password) {
+    Users.findBy({ username })
+      .first()
+      .then(user => {
+        if (user && bcrypt.compareSync(password, user.password)) {
+          next();
+        } else {
+          res.status(401).json({ message: 'You cannot pass!!!' });
+        }
+      })
+      .catch(error => {
+        res.status(500).json(error);
+      });
+  } else {
+    res.status(400).json({ message: 'please provide credentials' });
+  }
+}
+
 
 const port = process.env.PORT || 5000;
 server.listen(port, () => console.log(`\n** Running on port ${port} **\n`));
